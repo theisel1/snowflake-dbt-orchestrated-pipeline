@@ -1,0 +1,23 @@
+snowflake_dbt_orchestrated_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: "{{ env_var('SNOWFLAKE_ACCOUNT') }}"
+      user: "{{ env_var('SNOWFLAKE_USER') }}"
+      password: "{{ env_var('SNOWFLAKE_PASSWORD', '') }}"
+      authenticator: "{{ env_var('SNOWFLAKE_AUTHENTICATOR', 'snowflake') }}"
+      token: "{{ env_var('SNOWFLAKE_TOKEN', '') }}"
+      role: "{{ env_var('SNOWFLAKE_ROLE', 'ACCOUNTADMIN') }}"
+      warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'COMPUTE_WH') }}"
+      database: "{{ env_var('SNOWFLAKE_DATABASE', 'PORTFOLIO_DB') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA_STAGING', 'STAGING') }}"
+      threads: 4
+      client_session_keep_alive: false
+      query_tag: dbt-dev
+
+    ci:
+      type: duckdb
+      path: ":memory:"
+      schema: ci
+      threads: 1

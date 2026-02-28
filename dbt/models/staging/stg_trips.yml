@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_trips
+    description: Cleaned staging model for raw taxi-like trip events.
+    columns:
+      - name: trip_id
+        tests:
+          - not_null
+          - unique
+      - name: payment_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["Card", "Cash", "Other"]
+      - name: pickup_ts
+        tests:
+          - not_null
+      - name: dropoff_ts
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "fare_amount >= 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "trip_distance >= 0"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "total_amount >= 0"

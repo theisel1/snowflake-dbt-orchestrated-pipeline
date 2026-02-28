@@ -1,0 +1,5 @@
+locations:
+  - location_name: snowflake-dbt-orchestrated-pipeline
+    code_source:
+      package_name: orchestration.definitions
+    working_directory: .

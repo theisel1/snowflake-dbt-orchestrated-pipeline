@@ -1,0 +1,110 @@
+name: Dagster Cloud Deployment
+
+on:
+  push:
+    branches:
+      - "main"
+      - "master"
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: ${{ github.ref }}/dagster-cloud-deploy
+  cancel-in-progress: true
+
+env:
+  DAGSTER_CLOUD_API_TOKEN: ${{ secrets.DAGSTER_CLOUD_API_TOKEN }}
+  # Change this if your Dagster Cloud org slug is different.
+  DAGSTER_CLOUD_ORGANIZATION: "th"
+  DAGSTER_CLOUD_DEPLOYMENT: "prod"
+  DAGSTER_CLOUD_YAML_PATH: "."
+  DAGSTER_CLOUD_FILE: "dagster_cloud.yaml"
+  ENABLE_FAST_DEPLOYS: "true"
+  PYTHON_VERSION: "3.11"
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  dagster_cloud_deploy:
+    name: Deploy To Dagster Cloud
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Prerun Checks
+        id: prerun
+        uses: dagster-io/dagster-cloud-action/actions/utils/prerun@v1.11.9
+
+      - name: Checkout
+        if: steps.prerun.outputs.result != 'skip'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Validate configuration
+        if: steps.prerun.outputs.result != 'skip'
+        uses: dagster-io/dagster-cloud-action/actions/utils/dagster-cloud-cli@v1.11.9
+        with:
+          command: >-
+            ci check
+            --project-dir ${{ env.DAGSTER_CLOUD_YAML_PATH }}
+            --dagster-cloud-yaml-path ${{ env.DAGSTER_CLOUD_FILE }}
+
+      - name: Initialize build session
+        if: steps.prerun.outputs.result != 'skip'
+        uses: dagster-io/dagster-cloud-action/actions/utils/ci-init@v1.11.9
+        with:
+          project_dir: ${{ env.DAGSTER_CLOUD_YAML_PATH }}
+          dagster_cloud_yaml_path: ${{ env.DAGSTER_CLOUD_FILE }}
+          deployment: ${{ env.DAGSTER_CLOUD_DEPLOYMENT }}
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        id: setup-python-version
+        if: steps.prerun.outputs.result == 'pex-deploy'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install setuptools
+        if: steps.prerun.outputs.result == 'pex-deploy'
+        run: ${{ steps.setup-python-version.outputs.python-path }} -m pip install setuptools
+
+      - name: Run PEX build
+        if: steps.prerun.outputs.result == 'pex-deploy'
+        uses: dagster-io/dagster-cloud-action/actions/utils/dagster-cloud-cli@v1.11.9
+        with:
+          command: >-
+            ci build
+            --build-strategy=python-executable
+            --python-version ${{ env.PYTHON_VERSION }}
+            --pex-deps-cache-from='${{ github.repository }}'
+            --pex-deps-cache-to='${{ github.repository }}'
+
+      - name: Set up Docker Buildx
+        if: steps.prerun.outputs.result == 'docker-deploy'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run Docker build
+        if: steps.prerun.outputs.result == 'docker-deploy'
+        uses: dagster-io/dagster-cloud-action/actions/utils/dagster-cloud-cli@v1.11.9
+        with:
+          command: >-
+            ci build
+            --build-strategy=docker
+            --python-version ${{ env.PYTHON_VERSION }}
+
+      - name: Deploy to Dagster Cloud
+        if: steps.prerun.outputs.result != 'skip'
+        uses: dagster-io/dagster-cloud-action/actions/utils/dagster-cloud-cli@v1.11.9
+        with:
+          command: ci deploy
+
+      - name: Update PR comment for branch deployments
+        if: steps.prerun.outputs.result != 'skip'
+        uses: dagster-io/dagster-cloud-action/actions/utils/dagster-cloud-cli@v1.11.9
+        with:
+          command: ci notify --project-dir=${{ env.DAGSTER_CLOUD_YAML_PATH }}
+
+      - name: Generate workflow summary
+        if: steps.prerun.outputs.result != 'skip'
+        uses: dagster-io/dagster-cloud-action/actions/utils/dagster-cloud-cli@v1.11.9
+        with:
+          command: ci status --output-format=markdown >> $GITHUB_STEP_SUMMARY

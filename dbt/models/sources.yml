@@ -1,0 +1,16 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ env_var('SNOWFLAKE_DATABASE', 'PORTFOLIO_DB') }}"
+    schema: "{{ env_var('SNOWFLAKE_SCHEMA_RAW', 'RAW') }}"
+    config:
+      freshness:
+        warn_after: {count: 24, period: hour}
+        error_after: {count: 48, period: hour}
+    tables:
+      - name: trips
+        identifier: TRIPS
+        description: Raw trips table populated by `python -m pipeline.ingest`.
+        config:
+          loaded_at_field: load_ts

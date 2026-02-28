@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: dim_borough
+    description: Distinct borough dimension derived from pickup and dropoff locations.
+    columns:
+      - name: borough_key
+        tests:
+          - not_null
+          - unique
+      - name: borough_name
+        tests:
+          - not_null
+          - unique
+
+  - name: dim_vendor
+    description: Distinct vendor dimension.
+    columns:
+      - name: vendor_key
+        tests:
+          - not_null
+          - unique
+      - name: vendor_id
+        tests:
+          - not_null
+          - unique
+
+  - name: fct_trips_daily
+    description: Incremental daily trip facts by pickup date, vendor, and pickup borough.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - pickup_date
+              - vendor_id
+              - pickup_borough
+    columns:
+      - name: pickup_date
+        tests:
+          - not_null
+      - name: vendor_id
+        tests:
+          - not_null
+      - name: pickup_borough
+        tests:
+          - not_null
+      - name: borough_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_borough')
+                field: borough_key
+      - name: vendor_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_vendor')
+                field: vendor_key
