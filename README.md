@@ -31,6 +31,7 @@ graph LR
 
 - `data/sample_trips.csv`: committed sample dataset (~10k rows).
 - `scripts/generate_sample_data.py`: deterministic data generator.
+- `scripts/set_dagster_cloud_env_vars.py`: one-shot sync of Snowflake env vars to Dagster Cloud secrets.
 - `pipeline/`: Snowflake connection utils, ingestion CLI, native dbt CLI.
 - `dbt/`: dbt project models/tests/docs metadata.
 - `orchestration/`: Dagster jobs/schedule definitions.
@@ -181,6 +182,33 @@ execute dbt project PORTFOLIO_DB.MARTS.TRIPS_DBT_PROJECT
 
 Dagster Cloud config file used by CI/CD:
 - `dagster_cloud.yaml`
+
+### Sync runtime env vars to Dagster Cloud (recommended)
+
+This repo includes a helper to push the required Snowflake runtime vars into Dagster Cloud
+as deployment-global secrets (full + branch scopes by default), without committing secrets:
+
+```bash
+read -s DAGSTER_CLOUD_API_TOKEN
+export DAGSTER_CLOUD_API_TOKEN
+make dagster-cloud-env-sync
+unset DAGSTER_CLOUD_API_TOKEN
+```
+
+The sync command reads Snowflake values from `.env` (or shell env overrides) and uploads:
+
+- `SNOWFLAKE_ACCOUNT`
+- `SNOWFLAKE_USER`
+- `SNOWFLAKE_ROLE`
+- `SNOWFLAKE_WAREHOUSE`
+- `SNOWFLAKE_AUTHENTICATOR`
+- `SNOWFLAKE_TOKEN` or `SNOWFLAKE_PASSWORD` (depending on authenticator)
+- `SNOWFLAKE_DATABASE`
+- `SNOWFLAKE_SCHEMA_RAW`
+- `SNOWFLAKE_SCHEMA_STAGING`
+- `SNOWFLAKE_SCHEMA_MARTS`
+- `SNOWFLAKE_DBT_PROJECT_FQN`
+- `SNOWFLAKE_DBT_ARGS`
 
 ## CI
 
